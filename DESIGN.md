@@ -4,7 +4,7 @@
 
 ConvTool is an **offline** synthetic data generation system that produces multi-turn, multi-tool conversations grounded in real ToolBench API schemas. It is built to generate training data for tool-use AI agents without requiring any API keys, Docker, or external services.
 
-Two properties are central to the design: **context-aware reasoning** — every argument, scenario, and follow-up is derived from prior tool outputs and schema context rather than generated in isolation — and **hallucination reduction** — session memory, sticky parameter propagation, and schema validation collectively prevent the system from fabricating values (IDs, tickers, coordinates) that were already established in earlier steps.
+Two properties are central to the design: **context-aware reasoning** — every argument, scenario, and follow-up is derived from prior tool outputs and schema context rather than generated in isolation and **hallucination reduction** — session memory, sticky parameter propagation, and schema validation collectively prevent the system from fabricating values (IDs, tickers, coordinates) that were already established in earlier steps.
 
 **Pipeline at a glance:**
 ```
@@ -21,7 +21,7 @@ ToolBench JSON → Tool Registry → Knowledge Graph → 2-Layer Sampler
 
 **Purpose:** Normalise messy ToolBench JSON files into typed, immutable dataclasses.
 
-- Loader handles **15+ schema inconsistency patterns** (missing fields, wrong types, placeholder bodies, malformed enums) with per-entry exception isolation — a single bad endpoint never aborts a full tool file.
+- Loader handles **15+ schema inconsistency patterns** (missing fields, wrong types, placeholder bodies, malformed enums) with per-entry exception isolation a single bad endpoint never aborts a full tool file.
 - Each tool is stored as a **frozen dataclass** (`Tool`, `Endpoint`, `ParameterSchema`, `ResponseField`), making the registry immutable after load and safe to share across agents.
 - Registry serialises to `registry.json` for caching; `get_tool()` / `get_endpoint()` use lazily built dict indices for O(1) lookup.
 - Response field extraction follows a 3-level priority: `schema.properties` → `body` → fallback `[{result, status}]`.
@@ -30,7 +30,7 @@ ToolBench JSON → Tool Registry → Knowledge Graph → 2-Layer Sampler
 
 ## 2. Knowledge Graph
 
-**Purpose:** Model relationships between tools, endpoints, parameters, and semantic concepts so the sampler can discover realistic multi-step workflows through graph traversal — not hardcoded lists.
+**Purpose:** Model relationships between tools, endpoints, parameters, and semantic concepts so the sampler can discover realistic multi-step workflows through graph traversal.
 
 **Node types:** `Tool` · `Endpoint` · `Parameter` · `ResponseField` · `ConceptTag`
 
@@ -44,9 +44,9 @@ ToolBench JSON → Tool Registry → Knowledge Graph → 2-Layer Sampler
 | `CO_OCCURS` | ConceptTag ↔ ConceptTag | tags appear on the same tool |
 | `FEEDS` ★ | Endpoint → Endpoint | output field name matches required param name (data-flow) |
 
-**Why NetworkX DiGraph over a graph database:** Runs entirely in-process — no infrastructure setup for reviewers. All required traversal operations (`successors()`, `predecessors()`, in-degree queries) are natively supported. For a generation-time artifact that lives only during the process, in-process is the right trade-off.
+**Why NetworkX DiGraph over a graph database:** Runs entirely in-process no infrastructure setup for reviewers. All required traversal operations (`successors()`, `predecessors()`, in-degree queries) are natively supported. For a generation-time artifact that lives only during the process, in-process is the right trade-off.
 
-**FEEDS edges** are the key mechanism: a post-ingestion pass adds `A → B` when any `ResponseField` of A matches a required `Parameter` of B by name. This enables **context-aware chain sampling** — the sampler reasons about which endpoints can realistically follow each other based on actual schema-derived data dependencies, not semantic similarity alone (e.g. `geocode` returns `latitude`/`longitude`, which `search_nearby` requires as input).
+**FEEDS edges** are the key mechanism: a post-ingestion pass adds `A → B` when any `ResponseField` of A matches a required `Parameter` of B by name. This enables **context-aware chain sampling** the sampler reasons about which endpoints can realistically follow each other based on actual schema-derived data dependencies, not semantic similarity alone (e.g. `geocode` returns `latitude`/`longitude`, which `search_nearby` requires as input).
 
 **Stats (included 43-tool subset):** 3,914 nodes · 4,024 edges · 517 endpoint nodes
 
@@ -63,7 +63,7 @@ The sampler is intentionally split into two layers so each decision — *which* 
 - At dead ends, falls back to any unvisited same-domain tool to avoid getting stuck.
 - A **domain coherence retry loop** rejects walks with domain-mismatched tools and retries up to 5 times.
 
-`FEEDS` edges are weighted 2× because data-flow compatibility is a stronger signal than semantic proximity — two tools sharing a concept tag does not imply one should follow the other.
+`FEEDS` edges are weighted 2× because data-flow compatibility is a stronger signal than semantic proximity two tools sharing a concept tag does not imply one should follow the other.
 
 ### Layer 2 — PatternSampler (`graph/patterns.py`)
 
@@ -82,7 +82,7 @@ When **corpus memory is enabled**, pattern weights are adjusted dynamically befo
 ```
 adjusted_weight = max(base_weight × avg_usage / (pattern_count + 1), 0.02)
 ```
-Overused patterns are down-weighted; underused ones are boosted — producing measurably higher pattern entropy in Run B vs Run A.
+Overused patterns are down-weighted; underused ones are boosted producing measurably higher pattern entropy in Run B vs Run A.
 
 ---
 
@@ -104,7 +104,7 @@ SamplerAgent → PlannerAgent → UserProxyAgent ↔ AssistantAgent → Validato
 
 **Retry:** If validation fails, the orchestrator retries with a modified seed (up to 5 attempts).
 
-**Sticky parameter propagation:** A `conversation_context` dict in the orchestrator carries "sticky" values (symbol, city, date, etc.) across all steps, enabling consistent context-aware reasoning throughout the conversation. This directly reduces hallucination — without it, each step would independently generate a new entity value, producing incoherent traces (e.g. `GOOGL` in step 1, a different ticker in step 2) that are unusable as training data.
+**Sticky parameter propagation:** A `conversation_context` dict in the orchestrator carries "sticky" values (symbol, city, date, etc.) across all steps, enabling consistent context-aware reasoning throughout the conversation. This directly reduces hallucination without it, each step would independently generate a new entity value, producing incoherent traces (e.g. `GOOGL` in step 1, a different ticker in step 2) that are unusable as training data.
 
 **API-internal param filtering:** Parameters like `format`, `outputsize`, `language`, `function` are filtered from user-facing messages. A user would never say "the format is json."
 
@@ -115,8 +115,8 @@ SamplerAgent → PlannerAgent → UserProxyAgent ↔ AssistantAgent → Validato
 No real APIs are called. The engine (`execution/engine.py`) provides:
 
 - **Schema validation:** checks required parameters are present, types match, and enum constraints are satisfied.
-- **Session state enrichment:** resolves missing required parameters from values produced by earlier steps (e.g. `hotel_id` from step 1 auto-fills step 2). This is the execution-layer equivalent of context-aware reasoning — the engine carries forward what it already knows rather than allowing hallucinated values to enter the chain.
-- **Deterministic mock output:** response field values are derived from `MD5(endpoint_id + args)`. Named fields (`latitude`, `temperature`, `booking_reference`, etc.) get semantically appropriate values. Same inputs always produce the same outputs — required for reproducibility at a fixed seed.
+- **Session state enrichment:** resolves missing required parameters from values produced by earlier steps (e.g. `hotel_id` from step 1 auto-fills step 2). This is the execution-layer equivalent of context-aware reasoning the engine carries forward what it already knows rather than allowing hallucinated values to enter the chain.
+- **Deterministic mock output:** response field values are derived from `MD5(endpoint_id + args)`. Named fields (`latitude`, `temperature`, `booking_reference`, etc.) get semantically appropriate values. Same inputs always produce the same outputs required for reproducibility at a fixed seed.
 
 ---
 
@@ -131,7 +131,7 @@ class MemoryStore:
     def reset(self, scope: str) -> None: ...
 ```
 
-- All agents depend only on this interface — never on mem0 directly.
+- All agents depend only on this interface never on mem0 directly.
 - `make_memory_store()` factory selects the backend automatically:
   - **`Mem0MemoryStore`** — backed by `mem0.Memory()` with in-process Qdrant (no external service).
   - **`InMemoryStore`** — pure-Python keyword search, used in tests and when no API key is present.
@@ -144,8 +144,8 @@ class MemoryStore:
 
 ### Corpus Memory (`scope="corpus"`)
 
-- **Write:** after each validated conversation — compact summary e.g. `"Tools: alpha_vantage, coinranking. Domain: finance. Pattern: pipeline. Scenario: reviewing portfolio before earnings call."`
-- **Read:** before the planner generates a new conversation — retrieved summaries steer scenario selection away from already-covered combinations.
+- **Write:** after each validated conversation compact summary e.g. `"Tools: alpha_vantage, coinranking. Domain: finance. Pattern: pipeline. Scenario: reviewing portfolio before earnings call."`
+- **Read:** before the planner generates a new conversation retrieved summaries steer scenario selection away from already-covered combinations.
 - **Disabled with:** `--no-corpus-memory` flag on the `generate` command (used for Run A in the diversity experiment).
 
 ---
@@ -158,7 +158,7 @@ class MemoryStore:
 ```
 J = 1 - |A ∩ B| / |A ∪ B|    (averaged over all conversation pairs)
 ```
-Measures directly whether different conversations use different tools. A low value means the dataset is dominated by the same tool combinations — a training quality problem.
+Measures directly whether different conversations use different tools. A low value means the dataset is dominated by the same tool combinations a training quality problem.
 
 **Secondary — Shannon entropy over pattern-type distribution:**
 Measures structural balance. Maximum entropy = all six patterns equally represented. Agents trained only on linear conversations underperform on parallel and conditional tasks.
