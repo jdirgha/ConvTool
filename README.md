@@ -84,30 +84,37 @@ The loader handles any number of tools and categories. It gracefully skips malfo
 ### Step 1 — Download ToolBench
 
 ```bash
-# Option A: clone with git-lfs
-git lfs install
-git clone https://huggingface.co/datasets/ToolBench/ToolBench
+# 1) Download the full ToolBench repo (this gives you the folder layout)
+cd /Users/dirghajivani/Desktop/Agentic
+git clone https://github.com/OpenBMB/ToolBench.git
+cd ToolBench
 
-# Option B: download only the tools folder
-pip install huggingface_hub
-python3 - <<'EOF'
-from huggingface_hub import snapshot_download
-snapshot_download(
-    repo_id="ToolBench/ToolBench",
-    repo_type="dataset",
-    local_dir="./toolbench_full",
-    allow_patterns="data/toolenv/tools/**",
-)
-EOF
+# 2) Download `data.zip` (contains ToolBench/data/toolenv/tools/<Category>/*.json)
+#
+# Recommended (tool-assisted) download:
+# - Install gdown
+pip install gdown
+
+# - Download the exact `data.zip` from the official Google Drive folder:
+#   https://drive.google.com/drive/folders/1TysbSWYpP8EioFu9xPJtpbJZMLLmwAmL
+gdown --id 1XFjDxVZdUY7TXYF2yvzx3pJlS2fy78jk -O data.zip
+
+# Sanity-check before unzip (avoid the “HTML page downloaded instead of zip” issue)
+file data.zip
+
+# If it is not a real zip (often it reports “HTML document” and is ~1–2KB):
+#   - delete the bad file and re-run the gdown command
+# Unzip
+unzip data.zip
 ```
-
-Tools are located at `data/toolenv/tools/` inside the downloaded repository, organized as `Category/tool_name.json`.
 
 ### Step 2 — Build the registry
 
+If you prefer manual download: open the same Google Drive folder link, download `data.zip` to `ToolBench/`, then run `unzip data.zip`.
+
 ```bash
 tooluse build \
-  --data-dir ./toolbench_full/data/toolenv/tools \
+  --data-dir ./ToolBench/data/toolenv/tools \
   --output-dir output
 ```
 
