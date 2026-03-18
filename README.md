@@ -39,6 +39,8 @@ pip install -e ".[dev]"
 
 ### 2. Build the tool registry
 
+The repository ships with a curated subset of **43 ToolBench tools** across 6 domains (`Finance`, `Weather`, `Travel`, `Food`, `Location`, `Entertainment`) in `data/toolbench/tools/`.
+
 ```bash
 tooluse build --data-dir data/toolbench/tools --output-dir output
 ```
@@ -52,6 +54,8 @@ tooluse generate --seed 42 -n 55 -o output/run_a.jsonl --no-corpus-memory
 # Run B — corpus memory enabled (default)
 tooluse generate --seed 42 -n 55 -o output/run_b.jsonl
 ```
+
+Generated datasets are saved to `output/run_a.jsonl` and `output/run_b.jsonl`.
 
 ### 4. Validate and compute metrics
 
@@ -69,9 +73,7 @@ tooluse metrics -d output/run_b.jsonl
 pytest
 ```
 
-> **Note:** Pre-generated `run_a.jsonl` and `run_b.jsonl` are already included in `output/`, so you can skip to step 4 to inspect results immediately.
-
-The repository ships with a curated subset of **43 ToolBench tools** across 6 domains (`Finance`, `Weather`, `Travel`, `Food`, `Location`, `Entertainment`) in `data/toolbench/tools/`.
+> **Note:** Pre-generated `run_a.jsonl` and `run_b.jsonl` are already included in `output/`, so you can skip to step 4 to inspect results immediately after cloning.
 
 ---
 
@@ -226,7 +228,7 @@ Each JSONL record contains:
 ## Project Structure
 
 ```
-Agentic/
+ConvTool/
 ├── ConvTool/
 │   └── tooluse/
 │       ├── cli.py                 ← CLI entry point
