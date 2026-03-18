@@ -4,6 +4,8 @@
 
 ConvTool is an **offline** synthetic data generation system that produces multi-turn, multi-tool conversations grounded in real ToolBench API schemas. It is built to generate training data for tool-use AI agents without requiring any API keys, Docker, or external services.
 
+Two properties are central to the design: **context-aware reasoning** — every argument, scenario, and follow-up is derived from prior tool outputs and schema context rather than generated in isolation — and **hallucination reduction** — session memory, sticky parameter propagation, and schema validation collectively prevent the system from fabricating values (IDs, tickers, coordinates) that were already established in earlier steps.
+
 **Pipeline at a glance:**
 ```
 ToolBench JSON → Tool Registry → Knowledge Graph → 2-Layer Sampler
@@ -44,7 +46,7 @@ ToolBench JSON → Tool Registry → Knowledge Graph → 2-Layer Sampler
 
 **Why NetworkX DiGraph over a graph database:** Runs entirely in-process — no infrastructure setup for reviewers. All required traversal operations (`successors()`, `predecessors()`, in-degree queries) are natively supported. For a generation-time artifact that lives only during the process, in-process is the right trade-off.
 
-**FEEDS edges** are the key mechanism: a post-ingestion pass adds `A → B` when any `ResponseField` of A matches a required `Parameter` of B by name. This enables the sampler to propose chains where outputs genuinely feed into inputs (e.g. `geocode` returns `latitude`/`longitude`, which `search_nearby` requires).
+**FEEDS edges** are the key mechanism: a post-ingestion pass adds `A → B` when any `ResponseField` of A matches a required `Parameter` of B by name. This enables **context-aware chain sampling** — the sampler reasons about which endpoints can realistically follow each other based on actual schema-derived data dependencies, not semantic similarity alone (e.g. `geocode` returns `latitude`/`longitude`, which `search_nearby` requires as input).
 
 **Stats (included 43-tool subset):** 3,914 nodes · 4,024 edges · 517 endpoint nodes
 
@@ -97,12 +99,12 @@ SamplerAgent → PlannerAgent → UserProxyAgent ↔ AssistantAgent → Validato
 | **SamplerAgent** | Calls ChainSampler + PatternSampler, returns a typed `ToolChain` |
 | **PlannerAgent** | Infers domain, selects scenario, decides which params are upfront vs. clarified, reads corpus memory |
 | **UserProxyAgent** | Generates opening message, clarification replies, and follow-ups from domain templates |
-| **AssistantAgent** | Builds tool call arguments (from plan → session memory → generation), asks clarification Qs, summarises results |
+| **AssistantAgent** | Context-aware argument filling (plan → session memory → generation), clarification Qs, result summaries grounded in actual output values |
 | **ValidatorAgent** | Checks ≥3 tool calls, ≥2 distinct tools, matching outputs, required params, and explicit chaining |
 
 **Retry:** If validation fails, the orchestrator retries with a modified seed (up to 5 attempts).
 
-**Sticky parameter propagation:** A `conversation_context` dict in the orchestrator carries "sticky" values (symbol, city, date, etc.) across steps. This prevents parameter drift — e.g. a finance conversation that starts with `GOOGL` stays with `GOOGL` throughout, rather than hallucinating a new ticker at each step.
+**Sticky parameter propagation:** A `conversation_context` dict in the orchestrator carries "sticky" values (symbol, city, date, etc.) across all steps, enabling consistent context-aware reasoning throughout the conversation. This directly reduces hallucination — without it, each step would independently generate a new entity value, producing incoherent traces (e.g. `GOOGL` in step 1, a different ticker in step 2) that are unusable as training data.
 
 **API-internal param filtering:** Parameters like `format`, `outputsize`, `language`, `function` are filtered from user-facing messages. A user would never say "the format is json."
 
@@ -113,7 +115,7 @@ SamplerAgent → PlannerAgent → UserProxyAgent ↔ AssistantAgent → Validato
 No real APIs are called. The engine (`execution/engine.py`) provides:
 
 - **Schema validation:** checks required parameters are present, types match, and enum constraints are satisfied.
-- **Session state enrichment:** resolves missing required parameters from values produced by earlier steps (e.g. `hotel_id` from step 1 auto-fills step 2). This is what makes multi-step traces logically coherent.
+- **Session state enrichment:** resolves missing required parameters from values produced by earlier steps (e.g. `hotel_id` from step 1 auto-fills step 2). This is the execution-layer equivalent of context-aware reasoning — the engine carries forward what it already knows rather than allowing hallucinated values to enter the chain.
 - **Deterministic mock output:** response field values are derived from `MD5(endpoint_id + args)`. Named fields (`latitude`, `temperature`, `booking_reference`, etc.) get semantically appropriate values. Same inputs always produce the same outputs — required for reproducibility at a fixed seed.
 
 ---
@@ -137,7 +139,7 @@ class MemoryStore:
 ### Session Memory (`scope="session"`)
 
 - **Write:** after every tool call — `memory.add(json.dumps(tool_output), scope="session", metadata={conversation_id, step, endpoint})`
-- **Read:** before constructing arguments for any non-first tool call — retrieved values are used to fill parameters, grounding argument generation in actual prior outputs rather than fresh generation.
+- **Read:** before constructing arguments for any non-first tool call — retrieved values ground argument filling in actual prior outputs, enabling context-aware reasoning and reducing hallucination of values (e.g. fabricated booking IDs or incorrect stock symbols) that were already established earlier in the conversation.
 - **Metric:** `memory_grounding_rate` = (non-first steps that retrieved ≥1 entry) / (total non-first steps). Value of `1.0` means every eligible step was grounded. `null` if the conversation has only one tool call.
 
 ### Corpus Memory (`scope="corpus"`)
@@ -202,7 +204,7 @@ The `memory_grounding_rate` of 1.0 in both runs confirms that every eligible non
 | MD5-based mock output | Deterministic — same inputs always produce same outputs at any seed |
 | Template-based message generation | Fully reproducible offline; no LLM required anywhere in the pipeline |
 | Scope-as-user\_id in mem0 | Uses mem0's built-in namespace isolation; session and corpus never mix |
-| Sticky parameter propagation | Prevents context drift across steps — keeps entity (ticker, city) consistent |
+| Sticky parameter propagation | Reduces hallucination — same entity (ticker, city, date) is used consistently across all steps via context-aware propagation |
 | Lazy mem0 import | Avoids import-time crash in offline/test environments |
 | Retry with modified seed | Pipeline always produces output even when sampling occasionally fails validation |
 
