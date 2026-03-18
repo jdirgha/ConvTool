@@ -1,6 +1,6 @@
 # ConvTool — Offline Multi-Agent Tool-Use Conversation Generator
 
-ConvTool generates synthetic multi-turn, multi-tool conversations from ToolBench API schemas. It is designed to produce training data for tool-use AI agents — systems that need to select the right API, fill arguments correctly, and chain multiple calls to complete a user task.
+ConvTool generates synthetic multi-turn, multi-tool conversations from ToolBench API schemas. It is designed to produce training data for tool-use AI agents systems that need to select the right API, fill arguments correctly, and chain multiple calls to complete a user task.
 
 The system runs entirely offline: no API keys, no Docker, no external services.
 
@@ -39,7 +39,6 @@ source .venv/bin/activate
 
 pip install -e ".[dev]"
 ```
-
 ---
 
 ## Quick Start — Included 43-Tool Subset
