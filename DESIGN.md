@@ -13,7 +13,7 @@ ToolBench JSON → Tool Registry → Knowledge Graph → 2-Layer Sampler
         → Agentic Memory (mem0) → JSONL Dataset
 ```
 
-![System Architecture](diagram.jpeg)
+![System Architecture](diagram.jpg)
 
 ---
 
