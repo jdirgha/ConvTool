@@ -55,7 +55,7 @@ tooluse generate --seed 42 -n 55 -o output/run_a.jsonl --no-corpus-memory
 tooluse generate --seed 42 -n 55 -o output/run_b.jsonl
 ```
 
-Generated datasets are saved to `output/run_a.jsonl` and `output/run_b.jsonl`.
+Generated datasets are saved to `output/run_a.jsonl` and `output/run_b.jsonl`
 
 ### 4. Validate and compute metrics
 
