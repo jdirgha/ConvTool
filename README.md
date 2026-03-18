@@ -21,18 +21,15 @@ ToolBench JSON files
 
 ---
 
-## Prerequisites
+## Getting Started
 
-- Python 3.10+
-- No API keys required
-- No external services
+**Prerequisites:** Python 3.10+ (no API keys, no Docker, no external services needed)
 
----
-
-## Setup
+### 1. Clone and install
 
 ```bash
-cd Agentic
+git clone https://github.com/jdirgha/ConvTool.git
+cd ConvTool
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -40,32 +37,41 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
----
-
-## Quick Start — Included 43-Tool Subset
-
-The repository ships with 43 ToolBench tools across 6 domains (`Finance`, `Weather`, `Travel`, `Food`, `Location`, `Entertainment`) in `data/toolbench/tools/`.
+### 2. Build the tool registry
 
 ```bash
-# Build the tool registry
 tooluse build --data-dir data/toolbench/tools --output-dir output
+```
 
-# Run A: corpus memory disabled (diversity baseline)
+### 3. Generate conversations
+
+```bash
+# Run A — corpus memory disabled (diversity baseline)
 tooluse generate --seed 42 -n 55 -o output/run_a.jsonl --no-corpus-memory
 
-# Run B: corpus memory enabled
+# Run B — corpus memory enabled (default)
 tooluse generate --seed 42 -n 55 -o output/run_b.jsonl
+```
 
-# Validate
+### 4. Validate and compute metrics
+
+```bash
 tooluse validate -d output/run_a.jsonl
 tooluse validate -d output/run_b.jsonl
 
-# Diversity metrics
 tooluse metrics -d output/run_a.jsonl
 tooluse metrics -d output/run_b.jsonl
 ```
 
-Both `run_a.jsonl` and `run_b.jsonl` are already included in the `output/` directory.
+### 5. Run tests
+
+```bash
+pytest
+```
+
+> **Note:** Pre-generated `run_a.jsonl` and `run_b.jsonl` are already included in `output/`, so you can skip to step 4 to inspect results immediately.
+
+The repository ships with a curated subset of **43 ToolBench tools** across 6 domains (`Finance`, `Weather`, `Travel`, `Food`, `Location`, `Entertainment`) in `data/toolbench/tools/`.
 
 ---
 
@@ -177,21 +183,6 @@ tooluse metrics [OPTIONS]
 
   -d PATH          Dataset file to analyse.   Default: output/conversations.jsonl
   --registry PATH  Path to registry JSON.     Default: output/registry.json
-```
-
----
-
-## Tests
-
-```bash
-# All 71 tests
-pytest
-
-# Unit tests only
-pytest tests/unit/ -v
-
-# End-to-end test (builds registry, generates 55+ samples)
-pytest tests/e2e/ -v --timeout=300
 ```
 
 ---
